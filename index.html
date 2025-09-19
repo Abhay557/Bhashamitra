@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Sahayak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .chat-container::-webkit-scrollbar { width: 8px; }
+        .chat-container::-webkit-scrollbar-track { background: #f1f5f9; }
+        .chat-container::-webkit-scrollbar-thumb { background-color: #94a3b8; border-radius: 4px; border: 2px solid #f1f5f9; }
+        .ai-message-content ul { list-style-type: disc; padding-left: 20px; margin-top: 8px; }
+        .ai-message-content li { margin-bottom: 4px; }
+        .lang-btn.active { background-color: #4f46e5; color: white; }
+        .tts-button { transition: color 0.2s; }
+        .tts-button.playing svg { color: #4f46e5; }
+    </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen">
+    
+    <!-- Login Modal -->
+    <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2 text-center">Student Login</h2>
+            <p class="text-slate-500 mb-6 text-center text-sm">Access personalized information.</p>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                    <input type="text" id="username" class="w-full px-4 py-2 border border-slate-300 rounded-lg" value="Abhay">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="password" class="w-full px-4 py-2 border border-slate-300 rounded-lg" value="password">
+                </div>
+                <p id="login-error" class="text-red-500 text-sm text-center mb-4 hidden"></p>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700">Login</button>
+                <button type="button" id="close-modal-btn" class="w-full mt-2 text-slate-600 py-2 rounded-lg hover:bg-slate-100">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="w-full max-w-2xl h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+        <!-- Welcome View -->
+        <div id="welcome-view" class="flex flex-col items-center justify-center h-full p-8 text-center">
+            <div class="bg-indigo-500 text-white p-4 rounded-full h-16 w-16 flex items-center justify-center font-bold text-3xl mb-6">AI</div>
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">Welcome to Campus Sahayak</h1>
+            <p class="text-slate-500 mb-8 max-w-md">I'm an AI assistant trained on the official college website. Ask me anything about admissions, courses, fees, and more!</p>
+            <button id="start-chat-btn" class="bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                Start Chat
+            </button>
+        </div>
+
+        <!-- Chat View -->
+        <div id="chat-view" class="h-full flex-col hidden">
+            <header class="bg-white p-4 border-b border-slate-200 flex justify-between items-center">
+                <div class="text-left">
+                    <h1 class="text-xl font-bold text-slate-800">Campus Sahayak AI</h1>
+                    <p class="text-xs text-slate-500">Multilingual Campus Assistant</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div id="lang-selector" class="flex items-center border border-slate-200 rounded-lg p-1">
+                        <button class="lang-btn text-xs px-3 py-1 rounded-md transition-colors active" data-lang="auto">Auto</button>
+                        <button class="lang-btn text-xs px-3 py-1 rounded-md transition-colors" data-lang="English">English</button>
+                        <button class="lang-btn text-xs px-3 py-1 rounded-md transition-colors" data-lang="Hindi">हिन्दी</button>
+                        <button class="lang-btn text-xs px-3 py-1 rounded-md transition-colors" data-lang="Marathi">मराठी</button>
+                    </div>
+                    <div id="auth-container">
+                        <button id="login-btn" class="text-xs font-semibold bg-slate-200 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-300">Student Login</button>
+                        <div id="user-info" class="hidden items-center gap-2">
+                             <span id="user-name" class="text-xs font-semibold text-slate-700"></span>
+                             <button id="logout-btn" class="text-xs font-semibold bg-red-100 text-red-700 px-3 py-2 rounded-lg hover:bg-red-200">Logout</button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <div id="chat-container" class="flex-1 p-6 overflow-y-auto chat-container">
+                <div class="flex items-start gap-3 mb-6">
+                    <div class="bg-indigo-500 text-white p-2 rounded-full h-10 w-10 flex items-center justify-center font-bold text-lg">AI</div>
+                    <div class="bg-slate-200 text-slate-800 p-4 rounded-xl max-w-[80%] ai-message-content">
+                        <p>Hello! I am Campus Sahayak. How can I assist you today?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-white border-t border-slate-200">
+                <form id="chat-form" class="flex items-center gap-3">
+                    <input type="text" id="user-input" placeholder="Ask a question..." class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-300">
+                    <button type="submit" class="bg-indigo-600 text-white px-5 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const welcomeView = document.getElementById('welcome-view');
+        const chatView = document.getElementById('chat-view');
+        const startChatBtn = document.getElementById('start-chat-btn');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const chatContainer = document.getElementById('chat-container');
+        const langSelector = document.getElementById('lang-selector');
+        const loginModal = document.getElementById('login-modal');
+        const loginBtn = document.getElementById('login-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const loginForm = document.getElementById('login-form');
+        const authContainer = document.getElementById('auth-container');
+        const userInfo = document.getElementById('user-info');
+        const userNameEl = document.getElementById('user-name');
+        const logoutBtn = document.getElementById('logout-btn');
+        const loginErrorEl = document.getElementById('login-error');
+
+        const SERVER_URL = 'https://backend-bhashamitra.onrender.com/ask';
+        let currentLanguage = 'auto';
+        let loggedInStudent = null;
+        let currentAudio = null;
+
+        // --- Event Listeners ---
+        startChatBtn.addEventListener('click', () => {
+            welcomeView.classList.add('hidden');
+            chatView.classList.remove('hidden');
+            chatView.classList.add('flex');
+        });
+
+        langSelector.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                currentLanguage = e.target.dataset.lang;
+            }
+        });
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (message) sendMessage(message);
+            userInput.value = '';
+        });
+
+        loginBtn.addEventListener('click', () => loginModal.classList.remove('hidden'));
+        closeModalBtn.addEventListener('click', () => loginModal.classList.add('hidden'));
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            loginErrorEl.classList.add('hidden');
+
+            try {
+                const response = await fetch('https://backend-bhashamitra.onrender.com/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loggedInStudent = data.student;
+                    updateUIAfterLogin();
+                    loginModal.classList.add('hidden');
+                } else {
+                    loginErrorEl.textContent = data.message;
+                    loginErrorEl.classList.remove('hidden');
+                }
+            } catch (error) {
+                loginErrorEl.textContent = 'Failed to connect to server.';
+                loginErrorEl.classList.remove('hidden');
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            loggedInStudent = null;
+            updateUIAfterLogin();
+        });
+
+        chatContainer.addEventListener('click', async (e) => {
+            const ttsButton = e.target.closest('.tts-button');
+            if (ttsButton) {
+                const textToSpeak = ttsButton.dataset.text;
+                const buttonLanguage = ttsButton.dataset.lang;
+
+                if (currentAudio && !currentAudio.paused) {
+                    currentAudio.pause();
+                    document.querySelectorAll('.tts-button').forEach(btn => btn.classList.remove('playing'));
+                    return;
+                }
+                
+                ttsButton.classList.add('playing');
+                try {
+                    const response = await fetch('https://backend-bhashamitra.onrender.com/tts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: textToSpeak, language: buttonLanguage }),
+                    });
+                    const data = await response.json();
+                    if (data.audioContent) {
+                        currentAudio = new Audio("data:audio/mpeg;base64," + data.audioContent);
+                        currentAudio.play();
+                        currentAudio.onended = () => {
+                            ttsButton.classList.remove('playing');
+                        };
+                    } else { throw new Error(data.error || 'No audio content received.'); }
+                } catch (error) {
+                    console.error('TTS Error:', error);
+                    ttsButton.classList.remove('playing');
+                }
+            }
+        });
+
+
+        // --- Core Functions ---
+        function updateUIAfterLogin() {
+            if (loggedInStudent) {
+                loginBtn.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                userInfo.classList.add('flex');
+                userNameEl.textContent = `Welcome, ${loggedInStudent.name}`;
+            } else {
+                loginBtn.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+                userInfo.classList.remove('flex');
+            }
+        }
+
+        function formatMarkdown(text) {
+            text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-indigo-500 font-medium hover:underline">$1</a>');
+            text = text.replace(/^\s*[\*-]\s*(.*)/gm, '<ul><li>$1</li></ul>').replace(/<\/ul>\s*<ul>/g, '');
+            return text;
+        }
+
+        function addMessage(message, sender, suggestions = [], language = 'auto') {
+            const messageWrapper = document.createElement('div');
+            let content;
+            if (sender === 'user') {
+                messageWrapper.className = 'flex items-start gap-3 mb-6 justify-end';
+                content = `<div class="bg-indigo-600 text-white p-4 rounded-xl max-w-[80%]"><p>${message}</p></div><div class="bg-slate-600 text-white p-2 rounded-full h-10 w-10 flex items-center justify-center font-bold text-lg">U</div>`;
+            } else {
+                messageWrapper.className = 'flex flex-col items-start gap-2 mb-6';
+                const formattedMessage = formatMarkdown(message);
+                const escapedMessage = message.replace(/"/g, '&quot;');
+
+                content = `
+                    <div class="flex items-start gap-3 w-full">
+                        <div class="bg-indigo-500 text-white p-2 rounded-full h-10 w-10 flex items-center justify-center font-bold text-lg flex-shrink-0">AI</div>
+                        <div class="bg-slate-200 text-slate-800 p-4 rounded-xl max-w-[80%] ai-message-content">${formattedMessage}</div>
+                        <button class="tts-button text-slate-400 hover:text-indigo-600 ml-2 mt-2" data-text="${escapedMessage}" data-lang="${language}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                        </button>
+                    </div>`;
+
+                if (suggestions && suggestions.length > 0) {
+                    const suggestionsHtml = suggestions.map(s => `<button class="bg-slate-200 text-slate-700 text-sm px-3 py-1.5 rounded-lg hover:bg-slate-300 transition duration-300" onclick="sendMessage('${s.replace(/'/g, "\\'")}')">${s}</button>`).join('');
+                    content += `<div class="pl-12 pt-2 flex flex-wrap gap-2">${suggestionsHtml}</div>`;
+                }
+            }
+            messageWrapper.innerHTML = content;
+            chatContainer.appendChild(messageWrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'flex items-start gap-3 mb-6';
+            typingDiv.innerHTML = `<div class="bg-indigo-500 text-white p-2 rounded-full h-10 w-10 flex items-center justify-center font-bold text-lg">AI</div><div class="bg-slate-200 text-slate-800 p-4 rounded-xl max-w-[80%] flex items-center gap-2"><span class="w-2 h-2 bg-slate-500 rounded-full animate-pulse" style="animation-delay: 0s;"></span><span class="w-2 h-2 bg-slate-500 rounded-full animate-pulse" style="animation-delay: 0.2s;"></span><span class="w-2 h-2 bg-slate-500 rounded-full animate-pulse" style="animation-delay: 0.4s;"></span></div></div>`;
+            chatContainer.appendChild(typingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            document.getElementById('typing-indicator')?.remove();
+        }
+
+        async function sendMessage(message) {
+            addMessage(message, 'user');
+            showTypingIndicator();
+            
+            const payload = { 
+                question: message, 
+                language: currentLanguage,
+                studentId: loggedInStudent ? loggedInStudent.id : null
+            };
+
+            try {
+                const response = await fetch(SERVER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                removeTypingIndicator();
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Network response was not ok.');
+                }
+                
+                // Pass the language of the response to the addMessage function
+                addMessage(data.answer, 'ai', data.suggestions, currentLanguage);
+
+            } catch (error) {
+                console.error('Error:', error);
+                removeTypingIndicator();
+                addMessage(`Sorry, I encountered an issue: ${error.message}. Please check the server logs.`, 'ai');
+            }
+        }
+    </script>
+</body>
+</html>
+
