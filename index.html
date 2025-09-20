@@ -14,8 +14,6 @@
         .ai-message-content ul { list-style-type: disc; padding-left: 20px; margin-top: 8px; }
         .ai-message-content li { margin-bottom: 4px; }
         .lang-btn.active { background-color: #4f46e5; color: white; }
-        .tts-button { transition: color 0.2s; }
-        .tts-button.playing svg { color: #4f46e5; }
     </style>
 </head>
 <body class="bg-slate-100 flex items-center justify-center min-h-screen">
@@ -113,10 +111,10 @@
         const logoutBtn = document.getElementById('logout-btn');
         const loginErrorEl = document.getElementById('login-error');
 
-        const SERVER_URL = 'https://backend-bhashamitra.onrender.com/ask';
+        // IMPORTANT: Make sure this URL points to your deployed backend
+        const SERVER_URL = 'https://backend-bhashamitra.onrender.com';
         let currentLanguage = 'auto';
         let loggedInStudent = null;
-        let currentAudio = null;
 
         // --- Event Listeners ---
         startChatBtn.addEventListener('click', () => {
@@ -150,7 +148,7 @@
             loginErrorEl.classList.add('hidden');
 
             try {
-                const response = await fetch('https://backend-bhashamitra.onrender.com/login', {
+                const response = await fetch(`${SERVER_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password }),
@@ -175,41 +173,6 @@
             updateUIAfterLogin();
         });
 
-        chatContainer.addEventListener('click', async (e) => {
-            const ttsButton = e.target.closest('.tts-button');
-            if (ttsButton) {
-                const textToSpeak = ttsButton.dataset.text;
-                const buttonLanguage = ttsButton.dataset.lang;
-
-                if (currentAudio && !currentAudio.paused) {
-                    currentAudio.pause();
-                    document.querySelectorAll('.tts-button').forEach(btn => btn.classList.remove('playing'));
-                    return;
-                }
-                
-                ttsButton.classList.add('playing');
-                try {
-                    const response = await fetch('https://backend-bhashamitra.onrender.com/tts', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: textToSpeak, language: buttonLanguage }),
-                    });
-                    const data = await response.json();
-                    if (data.audioContent) {
-                        currentAudio = new Audio("data:audio/mpeg;base64," + data.audioContent);
-                        currentAudio.play();
-                        currentAudio.onended = () => {
-                            ttsButton.classList.remove('playing');
-                        };
-                    } else { throw new Error(data.error || 'No audio content received.'); }
-                } catch (error) {
-                    console.error('TTS Error:', error);
-                    ttsButton.classList.remove('playing');
-                }
-            }
-        });
-
-
         // --- Core Functions ---
         function updateUIAfterLogin() {
             if (loggedInStudent) {
@@ -231,7 +194,7 @@
             return text;
         }
 
-        function addMessage(message, sender, suggestions = [], language = 'auto') {
+        function addMessage(message, sender, suggestions = []) {
             const messageWrapper = document.createElement('div');
             let content;
             if (sender === 'user') {
@@ -240,15 +203,12 @@
             } else {
                 messageWrapper.className = 'flex flex-col items-start gap-2 mb-6';
                 const formattedMessage = formatMarkdown(message);
-                const escapedMessage = message.replace(/"/g, '&quot;');
-
                 content = `
                     <div class="flex items-start gap-3 w-full">
                         <div class="bg-indigo-500 text-white p-2 rounded-full h-10 w-10 flex items-center justify-center font-bold text-lg flex-shrink-0">AI</div>
-                        <div class="bg-slate-200 text-slate-800 p-4 rounded-xl max-w-[80%] ai-message-content">${formattedMessage}</div>
-                        <button class="tts-button text-slate-400 hover:text-indigo-600 ml-2 mt-2" data-text="${escapedMessage}" data-lang="${language}">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-                        </button>
+                        <div class="bg-slate-200 text-slate-800 p-4 rounded-xl max-w-[80%] ai-message-content">
+                           ${formattedMessage}
+                        </div>
                     </div>`;
 
                 if (suggestions && suggestions.length > 0) {
@@ -285,7 +245,7 @@
             };
 
             try {
-                const response = await fetch(SERVER_URL, {
+                const response = await fetch(`${SERVER_URL}/ask`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
@@ -297,8 +257,7 @@
                     throw new Error(data.error || 'Network response was not ok.');
                 }
                 
-                // Pass the language of the response to the addMessage function
-                addMessage(data.answer, 'ai', data.suggestions, currentLanguage);
+                addMessage(data.answer, 'ai', data.suggestions);
 
             } catch (error) {
                 console.error('Error:', error);
